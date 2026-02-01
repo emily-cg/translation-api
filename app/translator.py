@@ -1,12 +1,20 @@
+from typing import Optional
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 MODEL_ID = "Helsinki-NLP/opus-mt-en-fr"
 _SUPPORTED_PAIRS = {("en", "fr")}
 
-_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
-_model.eval()
+_tokenizer = None
+_model = None
+_model_error = None
+
+try:
+    _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    _model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
+    _model.eval()
+except OSError as exc:
+    _model_error = exc
 
 
 class UnsupportedLanguagePairError(ValueError):
@@ -28,6 +36,11 @@ def translate_text(text: str, source_lang: str, target_lang: str) -> str:
             f"Supported language pairs: {_format_supported_pairs()}"
         )
 
+    if _model is None or _tokenizer is None:
+        raise ModelUnavailableError(
+            "Translation model is unavailable. Download the model and try again."
+        )
+
     try:
         inputs = _tokenizer(text, return_tensors="pt")
         with torch.no_grad():
@@ -37,3 +50,11 @@ def translate_text(text: str, source_lang: str, target_lang: str) -> str:
         raise ModelUnavailableError(
             "Translation model is unavailable. Download the model and try again."
         ) from exc
+
+
+def is_model_available() -> bool:
+    return _model is not None and _tokenizer is not None and _model_error is None
+
+
+def model_unavailable_reason() -> Optional[str]:
+    return _model_error

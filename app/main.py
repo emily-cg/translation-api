@@ -7,6 +7,8 @@ from app.translator import (
     MODEL_ID,
     ModelUnavailableError,
     UnsupportedLanguagePairError,
+    is_model_available,
+    model_unavailable_reason,
     translate_text,
 )
 
@@ -20,6 +22,12 @@ def health():
 
 @app.get("/ready")
 def ready():
+    if not is_model_available():
+        detail = "Translation model is unavailable."
+        reason = model_unavailable_reason()
+        if reason:
+            detail = f"{detail} {reason}"
+        raise HTTPException(status_code=500, detail=detail)
     return {"status": "ok"}
 
 
