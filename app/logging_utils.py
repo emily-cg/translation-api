@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -17,6 +18,11 @@ def log_translate(event: str, *, level: str = "info", **fields) -> None:
         return
 
     logger.info(message)
+
+
+def stable_text_hash(text: str, length: int = 12) -> str:
+    hashed = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return hashed[:length]
 
 
 class TranslateLogSpan:

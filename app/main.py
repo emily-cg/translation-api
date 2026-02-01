@@ -5,7 +5,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Request, Response
 
-from app.logging_utils import TranslateLogSpan
+from app.logging_utils import TranslateLogSpan, stable_text_hash
 from app.schemas import TranslationRequest, TranslationResponse
 from app.translator import (
     MODEL_ID,
@@ -51,6 +51,7 @@ def translate(payload: TranslationRequest, request: Request):
     request_id = getattr(request.state, "request_id", None)
     text_length = len(payload.text)
     app_version = os.getenv("APP_VERSION", "unknown")
+    text_hash = stable_text_hash(payload.text)
     base_fields = {
         "request_id": request_id,
         "source_lang": payload.source_lang,
@@ -58,6 +59,7 @@ def translate(payload: TranslationRequest, request: Request):
         "model_id": MODEL_ID,
         "text_length": text_length,
         "app_version": app_version,
+        "text_hash": text_hash,
     }
 
     with TranslateLogSpan(base_fields) as span:

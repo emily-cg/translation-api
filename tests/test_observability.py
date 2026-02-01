@@ -55,6 +55,7 @@ def test_translate_success_logs(client, monkeypatch):
     assert "target_lang" in kwargs
     assert "model_id" in kwargs
     assert "text_length" in kwargs
+    assert "text_hash" in kwargs
 
 
 def test_translate_failure_logs(client, monkeypatch):
@@ -78,3 +79,11 @@ def test_translate_failure_logs(client, monkeypatch):
     assert kwargs["error_category"] == "bad_request"
     assert isinstance(kwargs["latency_ms"], int)
     assert kwargs["latency_ms"] >= 0
+    assert "text_hash" in kwargs
+
+
+def test_stable_text_hash_is_deterministic():
+    first = logging_utils.stable_text_hash("hello")
+    second = logging_utils.stable_text_hash("hello")
+    assert first == second
+    assert first != "hello"
