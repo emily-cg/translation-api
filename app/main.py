@@ -3,6 +3,12 @@ import time
 from fastapi import FastAPI, HTTPException
 
 from app.schemas import TranslationRequest, TranslationResponse
+from app.translator import (
+    MODEL_ID,
+    ModelUnavailableError,
+    UnsupportedLanguagePairError,
+    translate_text,
+)
 
 app = FastAPI()
 
@@ -26,12 +32,23 @@ def translate(payload: TranslationRequest):
         )
 
     start = time.perf_counter()
-    translation = f"[stub] {payload.text}"
+    try:
+        translation = translate_text(
+            payload.text,
+            payload.source_lang,
+            payload.target_lang,
+        )
+    except UnsupportedLanguagePairError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ModelUnavailableError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     latency_ms = int((time.perf_counter() - start) * 1000)
 
     return TranslationResponse(
         translation=translation,
-        model="stub",
+        model=MODEL_ID,
         source_lang=payload.source_lang,
         target_lang=payload.target_lang,
         latency_ms=latency_ms,
