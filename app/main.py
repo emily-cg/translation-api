@@ -4,8 +4,15 @@ import uuid
 import os
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.logging_utils import TranslateLogSpan, stable_text_hash
+from app.metrics import (
+    translator_errors_total,
+    translator_model_available,
+    translator_request_latency_seconds,
+    translator_requests_total,
+)
 from app.schemas import TranslationRequest, TranslationResponse
 from app.translator import (
     MODEL_ID,
@@ -30,6 +37,24 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    endpoint = request.url.path
+    if endpoint == "/metrics":
+        return await call_next(request)
+    method = request.method
+    start = time.perf_counter()
+    response = await call_next(request)
+    latency = time.perf_counter() - start
+    translator_request_latency_seconds.labels(endpoint=endpoint).observe(latency)
+    translator_requests_total.labels(
+        endpoint=endpoint,
+        method=method,
+        status_code=str(response.status_code),
+    ).inc()
+    return response
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -37,13 +62,20 @@ def health():
 
 @app.get("/ready")
 def ready():
-    if not is_model_available():
+    available = is_model_available()
+    translator_model_available.set(1 if available else 0)
+    if not available:
         detail = "Translation model is unavailable."
         reason = model_unavailable_reason()
         if reason:
             detail = f"{detail} {reason}"
         raise HTTPException(status_code=500, detail=detail)
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/translate", response_model=TranslationResponse)
@@ -64,6 +96,9 @@ def translate(payload: TranslationRequest, request: Request):
 
     with TranslateLogSpan(base_fields) as span:
         if payload.source_lang == payload.target_lang:
+            translator_errors_total.labels(
+                endpoint="/translate", error_category="bad_request"
+                ).inc()
             span.failure(status_code=400, error_category="bad_request")
             raise HTTPException(
                 status_code=400,
@@ -77,12 +112,21 @@ def translate(payload: TranslationRequest, request: Request):
                 payload.target_lang,
             )
         except UnsupportedLanguagePairError as exc:
+            translator_errors_total.labels(
+                endpoint="/translate", error_category="bad_request"
+            ).inc()
             span.failure(status_code=400, error_category="bad_request")
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except ModelUnavailableError as exc:
+            translator_errors_total.labels(
+                endpoint="/translate", error_category="internal_error"
+            ).inc()
             span.failure(status_code=500, error_category="internal_error")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         except Exception as exc:
+            translator_errors_total.labels(
+                endpoint="/translate", error_category="internal_error"
+            ).inc()
             span.failure(
                 status_code=500,
                 error_category="internal_error",
