@@ -10,13 +10,6 @@ _tokenizer: Optional[Any] = None
 _model: Optional[Any] = None
 _model_error: Optional[OSError] = None
 
-try:
-    _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-    _model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
-    _model.eval()
-except OSError as exc:
-    _model_error = exc
-
 
 class UnsupportedLanguagePairError(ValueError):
     pass
@@ -24,6 +17,17 @@ class UnsupportedLanguagePairError(ValueError):
 
 class ModelUnavailableError(RuntimeError):
     pass
+
+
+def load_model() -> None:
+    global _tokenizer, _model, _model_error
+    try:
+        _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        _model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
+        _model.eval()
+        _model_error = None
+    except OSError as exc:
+        _model_error = exc
 
 
 def _format_supported_pairs() -> str:
