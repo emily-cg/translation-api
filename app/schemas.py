@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Optional, Annotated
 
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, StringConstraints
 
 
 class TranslationRequest(BaseModel):
-    text: constr(min_length=1, max_length=2000)
+    text: Annotated[str, StringConstraints(min_length=1, max_length=2000)]
     source_lang: str = "en"
     target_lang: str
     request_id: Optional[str] = None

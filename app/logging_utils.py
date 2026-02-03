@@ -3,7 +3,7 @@ import json
 import logging
 import time
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 logger = logging.getLogger("app.translate")
@@ -28,7 +28,7 @@ def stable_text_hash(text: str, length: int = 12) -> str:
 class TranslateLogSpan:
     def __init__(self, base_fields: Dict[str, Any]):
         self.base_fields = base_fields
-        self._start = None
+        self._start: Optional[float] = None
 
     def __enter__(self) -> "TranslateLogSpan":
         self._start = time.perf_counter()
@@ -39,6 +39,8 @@ class TranslateLogSpan:
         return None
 
     def _latency_ms(self) -> int:
+        if self._start is None:
+            raise RuntimeError("TranslateLogSpan has not been started")
         return int((time.perf_counter() - self._start) * 1000)
 
     def success(self, status_code: int) -> int:
