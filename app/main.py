@@ -2,6 +2,7 @@ import logging
 import time
 import uuid
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -19,13 +20,21 @@ from app.translator import (
     ModelUnavailableError,
     UnsupportedLanguagePairError,
     is_model_available,
+    load_model,
     model_unavailable_reason,
     translate_text,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Model is loaded once per worker process (e.g., Uvicorn/Gunicorn workers).
+    load_model()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.middleware("http")

@@ -15,6 +15,12 @@ Run the container:
 docker run --rm -p 8000:8000 translation-api
 ```
 
+Set worker count (defaults to 1):
+
+```sh
+docker run --rm -p 8000:8000 -e WEB_CONCURRENCY=2 translation-api
+```
+
 Health check:
 
 ```sh
