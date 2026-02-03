@@ -26,3 +26,18 @@ Readiness check:
 ```sh
 curl http://localhost:8000/ready
 ```
+
+## Streamlit UI (optional)
+
+Run the API first, then in another terminal:
+
+```sh
+pip install -r requirements.txt -r requirements-dev.txt
+streamlit run streamlit_app.py
+```
+
+By default it calls `http://localhost:8000`. To change it:
+
+```sh
+TRANSLATION_API_URL=http://localhost:8000 streamlit run streamlit_app.py
+```
