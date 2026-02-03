@@ -5,9 +5,12 @@ import streamlit as st
 
 
 API_URL = os.getenv("TRANSLATION_API_URL", "http://localhost:8000")
+APP_URL = os.getenv("STREAMLIT_PUBLIC_URL", "http://localhost:8501")
 
 st.set_page_config(page_title="Translator", page_icon="🌍")
 st.title("Translator")
+
+print(f"Streamlit UI available at: {APP_URL}")
 
 with st.form("translate"):
     text = st.text_area("Text", height=120)
