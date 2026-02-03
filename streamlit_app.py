@@ -16,9 +16,9 @@ with st.form("translate"):
     text = st.text_area("Text", height=120)
     col1, col2 = st.columns(2)
     with col1:
-        source_lang = st.selectbox("Source language", ["en"])
+        source_lang: str = st.selectbox("Source language", ["en"])
     with col2:
-        target_lang = st.selectbox("Target language", ["fr"])
+        target_lang: str = st.selectbox("Target language", ["fr"])
     submitted = st.form_submit_button("Translate")
 
 if submitted:
