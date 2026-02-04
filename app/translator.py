@@ -30,6 +30,9 @@ class TranslatorService:
         pairs = sorted(f"{src}->{tgt}" for src, tgt in self._model_map.keys())
         return ", ".join(pairs)
 
+    def supported_pairs(self) -> Tuple[Tuple[str, str], ...]:
+        return tuple(sorted(self._model_map.keys()))
+
     def _load_pair(self, pair: Tuple[str, str]) -> None:
         model_id = self._model_map[pair]
         tokenizer = AutoTokenizer.from_pretrained(model_id)

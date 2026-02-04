@@ -55,6 +55,15 @@ def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+@app.get("/supported-languages")
+def supported_languages():
+    pairs = [
+        {"source_lang": src, "target_lang": tgt}
+        for src, tgt in translator_service.supported_pairs()
+    ]
+    return {"pairs": pairs}
+
+
 @app.post("/translate", response_model=TranslationResponse)
 def translate(payload: TranslationRequest, request: Request):
     request_id = getattr(request.state, "request_id", None)

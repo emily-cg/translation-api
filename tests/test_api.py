@@ -89,3 +89,13 @@ def test_translate_unsupported_language_pair():
     }
     response = client.post("/translate", json=payload)
     assert response.status_code == 400
+
+
+def test_supported_languages_endpoint():
+    response = client.get("/supported-languages")
+    assert response.status_code == 200
+    data = response.json()
+    assert "pairs" in data
+    pairs = data["pairs"]
+    assert {"source_lang": "en", "target_lang": "fr"} in pairs
+    assert {"source_lang": "en", "target_lang": "es"} in pairs
