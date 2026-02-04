@@ -90,3 +90,6 @@ Open:
 - `APP_VERSION` (optional): app version for logs, defaults to `unknown`
 - `TRANSLATION_API_URL` (Streamlit): API base URL, defaults to `http://localhost:8000`
 - `STREAMLIT_PUBLIC_URL` (Streamlit): UI URL shown in logs, defaults to `http://localhost:8501`
+- `MAX_INPUT_TOKENS` (optional): max input tokens for translation, defaults to `512`
+- `MAX_NEW_TOKENS` (optional): max output tokens for translation, defaults to `256`
+- `WEB_CONCURRENCY` (Docker): number of Uvicorn workers, defaults to `1`

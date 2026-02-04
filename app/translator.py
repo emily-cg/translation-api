@@ -1,5 +1,6 @@
 from typing import Optional, Any, Dict, Tuple
 
+import os
 import threading
 
 import torch
@@ -9,6 +10,8 @@ SUPPORTED_MODELS: Dict[Tuple[str, str], str] = {
     ("en", "fr"): "Helsinki-NLP/opus-mt-en-fr",
     ("en", "es"): "Helsinki-NLP/opus-mt-en-es",
 }
+MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "512"))
+MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "256"))
 
 
 class UnsupportedLanguagePairError(ValueError):
@@ -25,6 +28,9 @@ class TranslatorService:
         self._cache: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
         self._lock = threading.Lock()
         self._last_error: Optional[Exception] = None
+
+    def normalize_lang(self, lang: str) -> str:
+        return lang.strip().lower()
 
     def supported_pairs_str(self) -> str:
         pairs = sorted(f"{src}->{tgt}" for src, tgt in self._model_map.keys())
@@ -55,7 +61,7 @@ class TranslatorService:
             self._last_error = None
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> Tuple[str, str]:
-        pair = (source_lang, target_lang)
+        pair = (self.normalize_lang(source_lang), self.normalize_lang(target_lang))
         if pair not in self._model_map:
             raise UnsupportedLanguagePairError(
                 f"Supported language pairs: {self.supported_pairs_str()}"
@@ -75,8 +81,13 @@ class TranslatorService:
 
         tokenizer, model = self._cache[pair]
         with torch.no_grad():
-            inputs = tokenizer(text, return_tensors="pt")
-            outputs = model.generate(**inputs)
+            inputs = tokenizer(
+                text,
+                return_tensors="pt",
+                truncation=True,
+                max_length=MAX_INPUT_TOKENS,
+                )
+            outputs = model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS)
         translation = tokenizer.decode(outputs[0], skip_special_tokens=True)
         return translation, self._model_map[pair]
 
@@ -89,7 +100,8 @@ class TranslatorService:
         return str(self._last_error)
 
     def model_id_for_pair(self, source_lang: str, target_lang: str) -> Optional[str]:
-        return self._model_map.get((source_lang, target_lang))
+        pair = (self.normalize_lang(source_lang), self.normalize_lang(target_lang))
+        return self._model_map.get(pair)
 
 
 translator_service = TranslatorService(SUPPORTED_MODELS)

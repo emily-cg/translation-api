@@ -65,10 +65,12 @@ def supported_languages() -> dict:
 @app.post("/translate", response_model=TranslationResponse)
 def translate(payload: TranslationRequest, request: Request) -> TranslationResponse:
     request_id = getattr(request.state, "request_id", None)
-    base_fields = build_base_fields(payload, request_id)
+    source_lang = translator_service.normalize_lang(payload.source_lang)
+    target_lang = translator_service.normalize_lang(payload.target_lang)
+    base_fields = build_base_fields(payload, request_id, source_lang, target_lang)
 
     with TranslateLogSpan(base_fields) as span:
-        if payload.source_lang == payload.target_lang:
+        if source_lang == target_lang:
             handle_translate_error(
                 span,
                 400,
@@ -80,8 +82,8 @@ def translate(payload: TranslationRequest, request: Request) -> TranslationRespo
         try:
             translation, model_id = translator_service.translate(
                 payload.text,
-                payload.source_lang,
-                payload.target_lang,
+                source_lang,
+                target_lang,
             )
         except UnsupportedLanguagePairError as exc:
             handle_translate_error(span, 400, "bad_request", str(exc), exc)
@@ -97,7 +99,7 @@ def translate(payload: TranslationRequest, request: Request) -> TranslationRespo
     return TranslationResponse(
         translation=translation,
         model=model_id,
-        source_lang=payload.source_lang,
-        target_lang=payload.target_lang,
+        source_lang=source_lang,
+        target_lang=target_lang,
         latency_ms=latency_ms,
     )
