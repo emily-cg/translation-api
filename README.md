@@ -3,8 +3,8 @@ Translation endpoint serving using transformers library for FuzzyLabs interview 
 
 ## Requirements
 
-- Python 3.9+ (local)
-- Docker (optional)
+- Docker (recommended)
+- Python 3.11 (local)
 
 ## Run locally
 
