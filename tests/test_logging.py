@@ -33,7 +33,11 @@ def test_translate_success_logs(client, monkeypatch):
     def fake_log_translate(event, **kwargs):
         log_calls.append((event, kwargs))
 
-    monkeypatch.setattr(main, "translate_text", lambda *args, **kwargs: "bonjour")
+    monkeypatch.setattr(
+        main.translator_service,
+        "translate",
+        lambda *args, **kwargs: ("bonjour", "Helsinki-NLP/opus-mt-en-fr"),
+    )
     monkeypatch.setattr(logging_utils, "log_translate", fake_log_translate)
 
     response = client.post(

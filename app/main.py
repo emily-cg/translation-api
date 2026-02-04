@@ -18,11 +18,7 @@ from app.schemas import TranslationRequest, TranslationResponse
 from app.translator import (
     ModelUnavailableError,
     UnsupportedLanguagePairError,
-    is_model_available,
-    load_model,
-    model_id_for_pair,
-    model_unavailable_reason,
-    translate_text,
+    translator_service,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -30,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Model is loaded once per worker process (e.g., Uvicorn/Gunicorn workers).
-    load_model()
+    translator_service.load_all()
     yield
 
 
@@ -71,11 +67,11 @@ def health():
 
 @app.get("/ready")
 def ready():
-    available = is_model_available()
+    available = translator_service.is_available()
     translator_model_available.set(1 if available else 0)
     if not available:
         detail = "Translation model is unavailable."
-        reason = model_unavailable_reason()
+        reason = translator_service.unavailable_reason()
         if reason:
             detail = f"{detail} {reason}"
         raise HTTPException(status_code=500, detail=detail)
@@ -93,7 +89,10 @@ def translate(payload: TranslationRequest, request: Request):
     text_length = len(payload.text)
     app_version = os.getenv("APP_VERSION", "unknown")
     text_hash = stable_text_hash(payload.text)
-    model_id = model_id_for_pair(payload.source_lang, payload.target_lang) or "unknown"
+    model_id = (
+        translator_service.model_id_for_pair(payload.source_lang, payload.target_lang)
+        or "unknown"
+    )
     base_fields = {
         "request_id": request_id,
         "source_lang": payload.source_lang,
@@ -116,7 +115,7 @@ def translate(payload: TranslationRequest, request: Request):
             )
 
         try:
-            translation = translate_text(
+            translation, model_id = translator_service.translate(
                 payload.text,
                 payload.source_lang,
                 payload.target_lang,

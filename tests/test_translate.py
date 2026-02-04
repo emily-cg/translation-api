@@ -10,9 +10,9 @@ def test_translate_happy_path(monkeypatch):
     expected_translation = "bonjour"
 
     def fake_translate(text, source_lang, target_lang):
-        return expected_translation
+        return expected_translation, "Helsinki-NLP/opus-mt-en-fr"
 
-    monkeypatch.setattr(main, "translate_text", fake_translate)
+    monkeypatch.setattr(main.translator_service, "translate", fake_translate)
     payload = {
         "text": "hello",
         "source_lang": "en",
@@ -33,9 +33,9 @@ def test_translate_happy_path_spanish(monkeypatch):
     expected_translation = "hola"
 
     def fake_translate(text, source_lang, target_lang):
-        return expected_translation
+        return expected_translation, "Helsinki-NLP/opus-mt-en-es"
 
-    monkeypatch.setattr(main, "translate_text", fake_translate)
+    monkeypatch.setattr(main.translator_service, "translate", fake_translate)
     payload = {
         "text": "hello",
         "source_lang": "en",
