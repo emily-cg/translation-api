@@ -94,7 +94,7 @@ def main() -> None:
     source_options, targets_by_source = build_language_options(pairs)
 
     with st.form("translate"):
-        text = st.text_area("Text", height=120)
+        text = st.text_area("Text", height=120, max_chars=1000)
         col1, col2 = st.columns(2)
         with col1:
             source_lang = cast(str, st.selectbox("Source language", source_options))

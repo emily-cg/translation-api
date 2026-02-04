@@ -4,7 +4,10 @@ from pydantic import BaseModel, StringConstraints
 
 
 class TranslationRequest(BaseModel):
-    text: Annotated[str, StringConstraints(min_length=1, max_length=2000)]
+    text: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=1000, strip_whitespace=True),
+    ]
     source_lang: str = "en"
     target_lang: str
     request_id: Optional[str] = None

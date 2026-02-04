@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -23,18 +24,22 @@ def handle_translate_error(
     raise HTTPException(status_code=status_code, detail=detail) from exc
 
 
-def build_base_fields(payload: TranslationRequest, request_id: str | None) -> dict:
+def build_base_fields(
+    payload: TranslationRequest,
+    request_id: Optional[str],
+    source_lang: str,
+    target_lang: str,
+) -> dict:
     text_length = len(payload.text)
     app_version = os.getenv("APP_VERSION", "unknown")
     text_hash = stable_text_hash(payload.text)
     model_id = (
-        translator_service.model_id_for_pair(payload.source_lang, payload.target_lang)
-        or "unknown"
+        translator_service.model_id_for_pair(source_lang, target_lang) or "unknown"
     )
     return {
         "request_id": request_id,
-        "source_lang": payload.source_lang,
-        "target_lang": payload.target_lang,
+        "source_lang": source_lang,
+        "target_lang": target_lang,
         "model_id": model_id,
         "text_length": text_length,
         "app_version": app_version,
