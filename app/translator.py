@@ -1,14 +1,14 @@
-from typing import Optional, Any, cast
+from typing import Optional, Any, Dict, Tuple
+
+import threading
 
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-MODEL_ID = "Helsinki-NLP/opus-mt-en-fr"
-_SUPPORTED_PAIRS = {("en", "fr")}
-
-_tokenizer: Optional[Any] = None
-_model: Optional[Any] = None
-_model_error: Optional[OSError] = None
+SUPPORTED_MODELS: Dict[Tuple[str, str], str] = {
+    ("en", "fr"): "Helsinki-NLP/opus-mt-en-fr",
+    ("en", "es"): "Helsinki-NLP/opus-mt-en-es",
+}
 
 
 class UnsupportedLanguagePairError(ValueError):
@@ -19,49 +19,77 @@ class ModelUnavailableError(RuntimeError):
     pass
 
 
-def load_model() -> None:
-    global _tokenizer, _model, _model_error
-    try:
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        _model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_ID)
-        _model.eval()
-        _model_error = None
-    except OSError as exc:
-        _model_error = exc
+class TranslatorService:
+    def __init__(self, model_map: Dict[Tuple[str, str], str]):
+        self._model_map = model_map
+        self._cache: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
+        self._lock = threading.Lock()
+        self._last_error: Optional[Exception] = None
 
+    def supported_pairs_str(self) -> str:
+        pairs = sorted(f"{src}->{tgt}" for src, tgt in self._model_map.keys())
+        return ", ".join(pairs)
 
-def _format_supported_pairs() -> str:
-    pairs = sorted(f"{src}->{tgt}" for src, tgt in _SUPPORTED_PAIRS)
-    return ", ".join(pairs)
+    def supported_pairs(self) -> Tuple[Tuple[str, str], ...]:
+        return tuple(sorted(self._model_map.keys()))
 
+    def _load_pair(self, pair: Tuple[str, str]) -> None:
+        model_id = self._model_map[pair]
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
+        model.eval()
+        self._cache[pair] = (tokenizer, model)
 
-def translate_text(text: str, source_lang: str, target_lang: str) -> str:
-    if (source_lang, target_lang) not in _SUPPORTED_PAIRS:
-        raise UnsupportedLanguagePairError(
-            f"Supported language pairs: {_format_supported_pairs()}"
-        )
+    def load_all(self) -> None:
+        with self._lock:
+            for pair in self._model_map.keys():
+                if pair in self._cache:
+                    continue
+                try:
+                    self._load_pair(pair)
+                except OSError as exc:
+                    self._last_error = exc
+                    raise ModelUnavailableError(
+                        "Translation model is unavailable. Download the model and try again."
+                    ) from exc
+            self._last_error = None
 
-    if _model is None or _tokenizer is None:
-        raise ModelUnavailableError(
-            "Translation model is unavailable. Download the model and try again."
-        )
+    def translate(self, text: str, source_lang: str, target_lang: str) -> Tuple[str, str]:
+        pair = (source_lang, target_lang)
+        if pair not in self._model_map:
+            raise UnsupportedLanguagePairError(
+                f"Supported language pairs: {self.supported_pairs_str()}"
+            )
 
-    try:
-        inputs = _tokenizer(text, return_tensors="pt")
+        if pair not in self._cache:
+            with self._lock:
+                if pair not in self._cache:
+                    try:
+                        self._load_pair(pair)
+                        self._last_error = None
+                    except OSError as exc:
+                        self._last_error = exc
+                        raise ModelUnavailableError(
+                            "Translation model is unavailable. Download the model and try again."
+                        ) from exc
+
+        tokenizer, model = self._cache[pair]
         with torch.no_grad():
-            outputs = _model.generate(**inputs)
-        return cast(str, _tokenizer.decode(outputs[0], skip_special_tokens=True))
-    except OSError as exc:
-        raise ModelUnavailableError(
-            "Translation model is unavailable. Download the model and try again."
-        ) from exc
+            inputs = tokenizer(text, return_tensors="pt")
+            outputs = model.generate(**inputs)
+        translation = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return translation, self._model_map[pair]
+
+    def is_available(self) -> bool:
+        return self._last_error is None
+
+    def unavailable_reason(self) -> Optional[str]:
+        if self._last_error is None:
+            return None
+        return str(self._last_error)
+
+    def model_id_for_pair(self, source_lang: str, target_lang: str) -> Optional[str]:
+        return self._model_map.get((source_lang, target_lang))
 
 
-def is_model_available() -> bool:
-    return _model is not None and _tokenizer is not None and _model_error is None
-
-
-def model_unavailable_reason() -> Optional[str]:
-    if _model_error is None:
-        return None
-    return str(_model_error)
+translator_service = TranslatorService(SUPPORTED_MODELS)
