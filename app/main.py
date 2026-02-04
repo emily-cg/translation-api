@@ -16,11 +16,11 @@ from app.metrics import (
 )
 from app.schemas import TranslationRequest, TranslationResponse
 from app.translator import (
-    MODEL_ID,
     ModelUnavailableError,
     UnsupportedLanguagePairError,
     is_model_available,
     load_model,
+    model_id_for_pair,
     model_unavailable_reason,
     translate_text,
 )
@@ -93,11 +93,12 @@ def translate(payload: TranslationRequest, request: Request):
     text_length = len(payload.text)
     app_version = os.getenv("APP_VERSION", "unknown")
     text_hash = stable_text_hash(payload.text)
+    model_id = model_id_for_pair(payload.source_lang, payload.target_lang) or "unknown"
     base_fields = {
         "request_id": request_id,
         "source_lang": payload.source_lang,
         "target_lang": payload.target_lang,
-        "model_id": MODEL_ID,
+        "model_id": model_id,
         "text_length": text_length,
         "app_version": app_version,
         "text_hash": text_hash,
@@ -147,7 +148,7 @@ def translate(payload: TranslationRequest, request: Request):
 
     return TranslationResponse(
         translation=translation,
-        model=MODEL_ID,
+        model=model_id,
         source_lang=payload.source_lang,
         target_lang=payload.target_lang,
         latency_ms=latency_ms,
